@@ -207,7 +207,5 @@ int main() {
     // Демонстрация с trylock
     demonstrate_with_trylock();
 
-    printf("\nПрограмма завершена. Сравните результаты с синхронизацией и без нее.\n");
-
     return 0;
 }

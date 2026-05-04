@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <time.h>
 
-#define SHM_KEY 0x1234      // Ключ для разделяемой памяти
 #define SHM_SIZE 1024       // Размер разделяемой памяти
 
 // Структура для данных в разделяемой памяти
@@ -24,7 +23,7 @@ void print_shared_data(shared_data_t *data, const char *prefix) {
 }
 
 // Функция для демонстрации race condition (без синхронизации)
-void demonstrate_race_condition() {
+void demonstrate_race_condition(key_t shm_key) {
     int shmid;
     shared_data_t *shared_data;
     pid_t pid;
@@ -33,7 +32,7 @@ void demonstrate_race_condition() {
     printf("\n=== Демонстрация Race Condition с System V Shared Memory ===\n\n");
     
     // Создаем разделяемую память
-    shmid = shmget(SHM_KEY, SHM_SIZE, IPC_CREAT | 0666);
+    shmid = shmget(shm_key, SHM_SIZE, IPC_CREAT | 0666);
     if (shmid < 0) {
         perror("shmget failed");
         exit(1);
@@ -100,11 +99,11 @@ void demonstrate_race_condition() {
     
     // Очищаем разделяемую память
     shmdt(shared_data);
-    shmctl(shmid, IPC_RMID, NULL);
+    //shmctl(shmid, IPC_RMID, NULL);
 }
 
 // Функция для демонстрации более сложного race condition
-void demonstrate_complex_race_condition() {
+void demonstrate_complex_race_condition(key_t shm_key) {
     int shmid;
     shared_data_t *shared_data;
     pid_t pid;
@@ -113,7 +112,7 @@ void demonstrate_complex_race_condition() {
     printf("\n=== Сложный пример Race Condition (параллельное обновление) ===\n\n");
     
     // Создаем разделяемую память
-    shmid = shmget(SHM_KEY + 1, SHM_SIZE, IPC_CREAT | 0666);
+    shmid = shmget(shm_key + 1, SHM_SIZE, IPC_CREAT | 0666);
     if (shmid < 0) {
         perror("shmget failed");
         exit(1);
@@ -175,24 +174,45 @@ void demonstrate_complex_race_condition() {
     
     // Очищаем разделяемую память
     shmdt(shared_data);
-    shmctl(shmid, IPC_RMID, NULL);
+    //shmctl(shmid, IPC_RMID, NULL);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     printf("===============================================================\n");
     printf("Программа для демонстрации Race Condition в System V Shared Memory\n");
     printf("===============================================================\n");
     
     // Инициализация генератора случайных чисел
     srand(time(NULL));
+
+    key_t shm_key;
+
+    if (argc < 2) {
+        fprintf(stderr, "Использование: %s <ключ>\n", argv[0]);
+        fprintf(stderr, "Пример: %s 0x1234\n", argv[0]);
+        fprintf(stderr, "       %s 4660\n", argv[0]);
+        return 1;
+    }
+
+    // Поддержка как десятичного, так и 0x... формата
+    if (strncmp(argv[1], "0x", 2) == 0 || strncmp(argv[1], "0X", 2) == 0) {
+        shm_key = (key_t)strtoul(argv[1], NULL, 16);
+    } else {
+        shm_key = (key_t)strtoul(argv[1], NULL, 10);
+    }
+
+    if (shm_key == 0) {
+        fprintf(stderr, "Ошибка: некорректный ключ\n");
+        return 1;
+    }
+
+    printf("Используется ключ shared memory: 0x%08X (%u)\n", (unsigned int)shm_key, (unsigned int)shm_key);
     
     // Демонстрация race condition (без синхронизации)
-    demonstrate_race_condition();
+    demonstrate_race_condition(shm_key);
     
     // Сложный пример
-    demonstrate_complex_race_condition();
-
-    printf("\nПрограмма завершена. Сравните результаты с синхронизацией и без нее.\n");
+    demonstrate_complex_race_condition(shm_key);
     
     return 0;
 }
